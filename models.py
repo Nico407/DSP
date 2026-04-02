@@ -1,3 +1,25 @@
+from sqlalchemy import Column, Integer, String, Float
+from database import Base
+
+#Database Table
+class UserDB(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key = True, index = True)
+    name = Column(String)
+    sex = Column(String)
+    height = Column(Float)
+    weight = Column(Float)
+    age = Column(Integer)
+    activity_level = Column(String)
+    goal_choice = Column(String)
+
+    daily_kcal = Column(Integer)
+    protein = Column(Integer)
+    fat = Column(Integer)
+    carbs = Column(Integer)
+
+    
+
 class UserProfile:
     def __init__(self, 
                  name, 
