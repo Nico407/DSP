@@ -19,16 +19,16 @@ Phase 1: Core Engine
 [x] Persistence: Database insertion and user profile storage.
 
 Phase 2: Recipe Ecosystem
-[ ] Ingredient Library: Database table for raw ingredients and their macros.
+[x] Ingredient Library: Database table for raw ingredients and their macros.
 
-[ ] Scalable Recipes: DB table for full recipes with fixed macro ratios.
+[x] Scalable Recipes: DB table for full recipes with fixed macro ratios.
 
-[ ] Scaler Logic: Algorithm to adapt portion sizes to fit specific meal/daily targets.
+[x] Scaler Logic: Algorithm to adapt portion sizes to fit specific meal/daily targets.
 
 Phase 3: Smart Features
-[ ] Dietary Restrictions: Filtering for allergies or preferences (Vegan, Keto, etc.).
+[x] Dietary Restrictions: Filtering for allergies or preferences (Vegan, Keto, etc.).
 
-[ ] Meal Planning: Automated suggestions based on remaining daily macros.
+[x] Meal Planning: Automated suggestions based on remaining daily macros.
 
 [ ] UX Polish: Friendly feedback (e.g., "You have 600kcal left for today").
 

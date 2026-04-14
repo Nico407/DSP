@@ -1,9 +1,15 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from schemas import UserCreate, MacroResponse
-from models import UserProfile, UserDB, Base
+from schemas import (
+    UserCreate, MacroResponse,
+    IngredientCreate, IngredientRead,
+    RecipeCreate, PlanRequest,
+)
+from models import UserProfile, UserDB, Base, Ingredient, Recipe, RecipeItem, Tag
 from database import engine, get_db
 from calculations import calculate_tdee, calculate_macros
+from recipes import serialize_recipe, scale_recipe
+from planner import build_plans
 
 #creates DB File if none existing
 Base.metadata.create_all(bind=engine)
@@ -52,3 +58,83 @@ def get_macros_api(user_data: UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user) #gives object Id from DB
 
     return results
+
+
+@app.post("/ingredients", response_model=IngredientRead)
+def create_ingredient(data: IngredientCreate, db: Session = Depends(get_db)):
+    if db.query(Ingredient).filter(Ingredient.name == data.name).first():
+        raise HTTPException(400, f"Ingredient '{data.name}' already exists.")
+    ing = Ingredient(**data.model_dump())
+    db.add(ing); db.commit(); db.refresh(ing)
+    return ing
+
+
+@app.get("/ingredients", response_model=list[IngredientRead])
+def list_ingredients(db: Session = Depends(get_db)):
+    return db.query(Ingredient).all()
+
+
+@app.post("/recipes")
+def create_recipe(data: RecipeCreate, db: Session = Depends(get_db)):
+    recipe = Recipe(name=data.name, servings=data.servings, instructions=data.instructions)
+    for item in data.items:
+        if not db.query(Ingredient).get(item.ingredient_id):
+            raise HTTPException(404, f"Ingredient id {item.ingredient_id} not found.")
+        recipe.items.append(RecipeItem(ingredient_id=item.ingredient_id, grams=item.grams))
+    db.add(recipe); db.commit(); db.refresh(recipe)
+    return serialize_recipe(recipe)
+
+
+@app.get("/tags")
+def list_tags(db: Session = Depends(get_db)):
+    return [t.name for t in db.query(Tag).order_by(Tag.name).all()]
+
+
+# GET /recipes?diet=vegan,gluten_free
+# A recipe matches iff EVERY ingredient carries EVERY requested tag.
+@app.get("/recipes")
+def list_recipes(diet: str | None = None, db: Session = Depends(get_db)):
+    required = [t.strip() for t in diet.split(",")] if diet else []
+    results = []
+    for recipe in db.query(Recipe).all():
+        if required:
+            ok = all(
+                all(req in {t.name for t in item.ingredient.tags} for req in required)
+                for item in recipe.items
+            )
+            if not ok:
+                continue
+        results.append(serialize_recipe(recipe))
+    return results
+
+
+@app.get("/recipes/{recipe_id}")
+def get_recipe(recipe_id: int, db: Session = Depends(get_db)):
+    recipe = db.query(Recipe).get(recipe_id)
+    if not recipe:
+        raise HTTPException(404, "Recipe not found.")
+    return serialize_recipe(recipe)
+
+
+@app.post("/plan")
+def plan_day(req: PlanRequest, db: Session = Depends(get_db)):
+    target = {
+        "daily_kcal": req.daily_kcal,
+        "protein": req.protein,
+        "fat": req.fat,
+        "carbs": req.carbs,
+    }
+    return build_plans(db, target, diet=req.diet, meals=req.meals, split=req.split)
+
+
+@app.get("/recipes/{recipe_id}/scale")
+def scale_recipe_endpoint(
+    recipe_id: int,
+    target_kcal: float | None = None,
+    target_protein: float | None = None,
+    db: Session = Depends(get_db),
+):
+    recipe = db.query(Recipe).get(recipe_id)
+    if not recipe:
+        raise HTTPException(404, "Recipe not found.")
+    return scale_recipe(recipe, target_kcal=target_kcal, target_protein=target_protein)

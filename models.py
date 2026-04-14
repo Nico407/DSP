@@ -1,5 +1,14 @@
-from sqlalchemy import Column, Integer, String, Float
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Table
+from sqlalchemy.orm import relationship
 from database import Base
+
+
+ingredient_tags = Table(
+    "ingredient_tags",
+    Base.metadata,
+    Column("ingredient_id", ForeignKey("ingredients.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+)
 
 #Database Table
 class UserDB(Base):
@@ -18,7 +27,47 @@ class UserDB(Base):
     fat = Column(Integer)
     carbs = Column(Integer)
 
-    
+
+class Tag(Base):
+    __tablename__ = "tags"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+
+
+# Macros are stored per 100g so recipes can scale any ingredient amount.
+class Ingredient(Base):
+    __tablename__ = "ingredients"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    kcal_per_100g = Column(Float)
+    protein_per_100g = Column(Float)
+    fat_per_100g = Column(Float)
+    carbs_per_100g = Column(Float)
+
+    tags = relationship("Tag", secondary=ingredient_tags, backref="ingredients")
+
+
+class Recipe(Base):
+    __tablename__ = "recipes"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    servings = Column(Integer, default=1)
+    instructions = Column(String, nullable=True)
+
+    items = relationship("RecipeItem", back_populates="recipe", cascade="all, delete-orphan")
+
+
+class RecipeItem(Base):
+    __tablename__ = "recipe_items"
+    id = Column(Integer, primary_key=True, index=True)
+    recipe_id = Column(Integer, ForeignKey("recipes.id"))
+    ingredient_id = Column(Integer, ForeignKey("ingredients.id"))
+    grams = Column(Float)
+
+    recipe = relationship("Recipe", back_populates="items")
+    ingredient = relationship("Ingredient")
+
+
 
 class UserProfile:
     def __init__(self, 
