@@ -74,3 +74,26 @@ def calculate_macros(user, tdee, goal_choice):
         "p_multiplier_used":  round(protein_multiplier, 1)
     }
 
+
+GOAL_LABELS = {
+    "1": "strong gain (+0.5 kg/week)",
+    "2": "mild gain (+0.25 kg/week)",
+    "3": "maintain weight",
+    "4": "mild loss (-0.25 kg/week)",
+    "5": "strong loss (-0.5 kg/week)",
+}
+
+
+def build_macro_messages(user, goal_choice, results):
+    label = GOAL_LABELS.get(goal_choice, GOAL_LABELS["3"])
+    msgs = [
+        f"Goal set to {label}.",
+        f"Daily target: {results['daily_kcal']} kcal — "
+        f"{results['protein']} g protein, {results['fat']} g fat, {results['carbs']} g carbs.",
+    ]
+    if user.age >= 50:
+        msgs.append("Protein bumped for age 50+ to offset anabolic resistance.")
+    elif user.age >= 40:
+        msgs.append("Slight protein bump applied for age 40+.")
+    return msgs
+

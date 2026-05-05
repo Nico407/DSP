@@ -1,6 +1,11 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, Table
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Table, DateTime
 from sqlalchemy.orm import relationship
 from database import Base
+
+
+def _utcnow():
+    return datetime.now(timezone.utc)
 
 
 ingredient_tags = Table(
@@ -67,6 +72,27 @@ class RecipeItem(Base):
     recipe = relationship("Recipe", back_populates="items")
     ingredient = relationship("Ingredient")
 
+
+
+# Snapshot of a meal eaten by a user. We store the recipe link AND the macro
+# values at log time so later edits to the recipe don't rewrite history.
+class MealLog(Base):
+    __tablename__ = "meal_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), index=True)
+    recipe_id = Column(Integer, ForeignKey("recipes.id"), nullable=True)
+    scale_factor = Column(Float, default=1.0)
+    eaten_at = Column(DateTime, default=_utcnow, index=True)
+
+    kcal = Column(Float)
+    protein = Column(Float)
+    fat = Column(Float)
+    carbs = Column(Float)
+
+    note = Column(String, nullable=True)
+
+    user = relationship("UserDB")
+    recipe = relationship("Recipe")
 
 
 class UserProfile:

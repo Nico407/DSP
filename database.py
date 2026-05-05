@@ -1,11 +1,18 @@
+import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
-# 1. Define where the database file lives
-SQLALCHEMY_DATABASE_URL = "sqlite:///./recipes.db"
+# DB path is overridable for production (e.g. DB_PATH=/app/data/recipes.db on Fly volume)
+DB_PATH = os.getenv("DB_PATH", "./recipes.db")
 
-# 2. Create the engine (check_same_thread is only needed for SQLite)
+# Ensure parent dir exists when DB_PATH points into a sub-directory
+_db_dir = os.path.dirname(DB_PATH)
+if _db_dir:
+    os.makedirs(_db_dir, exist_ok=True)
+
+SQLALCHEMY_DATABASE_URL = f"sqlite:///{DB_PATH}"
+
+# Create the engine (check_same_thread is only needed for SQLite)
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
 )

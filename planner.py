@@ -29,6 +29,23 @@ def _score(totals, target):
     )
 
 
+def _friendly_messages(leftover):
+    msgs = []
+    k = leftover["kcal"]
+    if abs(k) <= 50:
+        msgs.append(f"On target — only {abs(k):.0f} kcal off.")
+    elif k > 0:
+        msgs.append(f"You have {k:.0f} kcal left for today.")
+    else:
+        msgs.append(f"You're {abs(k):.0f} kcal over your daily target.")
+    p = leftover["protein"]
+    if p > 10:
+        msgs.append(f"Still {p:.0f} g protein to hit your goal.")
+    elif p < -10:
+        msgs.append(f"Protein is {abs(p):.0f} g over target.")
+    return msgs
+
+
 def build_plans(db, target, diet=None, meals=3, split=None, top_n=2):
     required = [t.strip() for t in diet.split(",")] if diet else []
     split = split or DEFAULT_SPLITS.get(meals, [1.0 / meals] * meals)
@@ -70,6 +87,12 @@ def build_plans(db, target, diet=None, meals=3, split=None, top_n=2):
         if key in seen_sets:
             continue
         seen_sets.add(key)
+        leftover = {
+            "kcal":    round(target["daily_kcal"] - totals["total_kcal"], 1),
+            "protein": round(target["protein"]    - totals["total_protein"], 1),
+            "fat":     round(target["fat"]        - totals["total_fat"], 1),
+            "carbs":   round(target["carbs"]      - totals["total_carbs"], 1),
+        }
         plans.append({
             "score": round(score, 1),
             "meals": [
@@ -78,12 +101,8 @@ def build_plans(db, target, diet=None, meals=3, split=None, top_n=2):
                 for i, s in enumerate(scaled)
             ],
             "totals": totals,
-            "leftover": {
-                "kcal":    round(target["daily_kcal"] - totals["total_kcal"], 1),
-                "protein": round(target["protein"]    - totals["total_protein"], 1),
-                "fat":     round(target["fat"]        - totals["total_fat"], 1),
-                "carbs":   round(target["carbs"]      - totals["total_carbs"], 1),
-            },
+            "leftover": leftover,
+            "messages": _friendly_messages(leftover),
         })
         if len(plans) >= top_n:
             break

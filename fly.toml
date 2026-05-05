@@ -1,0 +1,43 @@
+# Fly.io deployment config for the DSP macro API.
+#
+# First-time setup:
+#   1. brew install flyctl              (macOS) or see fly.io/docs/hands-on/install-flyctl
+#   2. fly auth signup                  (or `fly auth login` if you have an account)
+#   3. Edit `app` below to a unique name (Fly app names are global) and pick a region.
+#   4. fly apps create <your-app-name>
+#   5. fly volumes create dsp_data --size 1 --region <same region as below>
+#   6. fly deploy
+#
+# Seed the DB once after the first deploy:
+#   fly ssh console -C "python3 seed.py"
+
+app = "dsp-macro-api"           # CHANGE ME — must be globally unique on Fly
+primary_region = "fra"           # CHANGE ME — fra=Frankfurt, lhr=London, iad=Virginia, etc.
+
+[build]
+
+[env]
+  DB_PATH = "/app/data/recipes.db"
+
+[[mounts]]
+  source = "dsp_data"
+  destination = "/app/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
