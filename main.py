@@ -1,5 +1,7 @@
 from datetime import datetime, date, time, timezone
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request, Form
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from schemas import (
     UserCreate, MacroResponse, UserRead, UserPlanRequest, UserSummary,
@@ -10,10 +12,12 @@ from schemas import (
 )
 from models import UserProfile, UserDB, Base, Ingredient, Recipe, RecipeItem, Tag, MealLog
 from database import engine, get_db
-from calculations import calculate_tdee, calculate_macros, build_macro_messages
+from calculations import calculate_tdee, calculate_macros, build_macro_messages, GOAL_LABELS
 from recipes import serialize_recipe, scale_recipe, compute_totals
 from planner import build_plans
 from food_log import serialize_log, daily_messages
+
+templates = Jinja2Templates(directory="templates")
 
 #creates DB File if none existing
 Base.metadata.create_all(bind=engine)
@@ -21,8 +25,175 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI()
 
 @app.get("/")
-def home():
+def root():
+    # Browsers landing on the bare URL get sent to the UI.
+    return RedirectResponse("/app", status_code=302)
+
+
+@app.get("/health")
+def health():
     return {"message": "Macro API is online."}
+
+
+# ---------------------------------------------------------------------------
+# UI routes — server-rendered HTML pages backed by the same DB.
+# ---------------------------------------------------------------------------
+
+def _build_today(db: Session, user: "UserDB"):
+    today = date.today()
+    start = datetime.combine(today, time.min)
+    end = datetime.combine(today, time.max)
+    logs = (
+        db.query(MealLog)
+        .filter(MealLog.user_id == user.id, MealLog.eaten_at >= start, MealLog.eaten_at <= end)
+        .order_by(MealLog.eaten_at)
+        .all()
+    )
+    consumed = {
+        "kcal":    round(sum(l.kcal    for l in logs), 1),
+        "protein": round(sum(l.protein for l in logs), 1),
+        "fat":     round(sum(l.fat     for l in logs), 1),
+        "carbs":   round(sum(l.carbs   for l in logs), 1),
+    }
+    remaining = {
+        "kcal":    round(user.daily_kcal - consumed["kcal"],    1),
+        "protein": round(user.protein    - consumed["protein"], 1),
+        "fat":     round(user.fat        - consumed["fat"],     1),
+        "carbs":   round(user.carbs      - consumed["carbs"],   1),
+    }
+    return {
+        "date": today.isoformat(),
+        "consumed": consumed,
+        "remaining": remaining,
+        "messages": daily_messages(remaining, len(logs)),
+        "logs": [serialize_log(l) | {"eaten_at": l.eaten_at} for l in logs],
+    }
+
+
+@app.get("/app", response_class=HTMLResponse)
+def ui_home(request: Request):
+    return templates.TemplateResponse(request, "home.html", {})
+
+
+@app.get("/app/calculate", response_class=HTMLResponse)
+def ui_calculate_form(request: Request):
+    return templates.TemplateResponse(request, "calculate.html", {})
+
+
+@app.post("/app/calculate")
+def ui_calculate_submit(
+    name: str = Form(...),
+    sex: str = Form(...),
+    height: float = Form(...),
+    weight: float = Form(...),
+    age: int = Form(...),
+    activity_level: str = Form(...),
+    goal_choice: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    user_logic = UserProfile(
+        name=name, sex=sex, height=height, weight=weight,
+        age=age, activity_level=activity_level,
+    )
+    tdee = calculate_tdee(user_logic)
+    results = calculate_macros(user_logic, tdee, goal_choice)
+    new_user = UserDB(
+        name=name, sex=sex, height=height, weight=weight, age=age,
+        activity_level=activity_level, goal_choice=goal_choice,
+        daily_kcal=results["daily_kcal"], protein=results["protein"],
+        fat=results["fat"], carbs=results["carbs"],
+    )
+    db.add(new_user); db.commit(); db.refresh(new_user)
+    return RedirectResponse(f"/app/users/{new_user.id}", status_code=303)
+
+
+@app.get("/app/users", response_class=HTMLResponse)
+def ui_users(request: Request, db: Session = Depends(get_db)):
+    users = db.query(UserDB).order_by(UserDB.id).all()
+    return templates.TemplateResponse(request, "users.html", {"users": users})
+
+
+@app.get("/app/users/{user_id}", response_class=HTMLResponse)
+def ui_user_dashboard(user_id: int, request: Request, db: Session = Depends(get_db)):
+    user = db.get(UserDB, user_id)
+    if not user:
+        raise HTTPException(404, f"User id {user_id} not found.")
+    targets = {
+        "daily_kcal": user.daily_kcal,
+        "protein":    user.protein,
+        "fat":        user.fat,
+        "carbs":      user.carbs,
+    }
+    today = _build_today(db, user)
+    recipes = [serialize_recipe(r) for r in db.query(Recipe).order_by(Recipe.name).all()]
+    return templates.TemplateResponse(request, "user.html", {
+        "profile": user,
+        "targets": targets,
+        "today": today,
+        "recipes": recipes,
+        "goal_label": GOAL_LABELS.get(user.goal_choice, ""),
+    })
+
+
+@app.post("/app/users/{user_id}/log")
+def ui_log_meal(
+    user_id: int,
+    recipe_id: int = Form(...),
+    scale_factor: float = Form(1.0),
+    db: Session = Depends(get_db),
+):
+    user = db.get(UserDB, user_id)
+    recipe = db.get(Recipe, recipe_id)
+    if not user or not recipe:
+        raise HTTPException(404, "User or recipe not found.")
+    totals = compute_totals(recipe)
+    log = MealLog(
+        user_id=user_id,
+        recipe_id=recipe.id,
+        scale_factor=scale_factor,
+        eaten_at=datetime.now(timezone.utc),
+        kcal=round(totals["total_kcal"]    * scale_factor, 1),
+        protein=round(totals["total_protein"] * scale_factor, 1),
+        fat=round(totals["total_fat"]      * scale_factor, 1),
+        carbs=round(totals["total_carbs"]   * scale_factor, 1),
+    )
+    db.add(log); db.commit()
+    return RedirectResponse(f"/app/users/{user_id}", status_code=303)
+
+
+@app.post("/app/log/{log_id}/delete")
+def ui_delete_log(log_id: int, db: Session = Depends(get_db)):
+    log = db.get(MealLog, log_id)
+    if not log:
+        raise HTTPException(404, f"Log id {log_id} not found.")
+    user_id = log.user_id
+    db.delete(log); db.commit()
+    return RedirectResponse(f"/app/users/{user_id}", status_code=303)
+
+
+@app.get("/app/users/{user_id}/plan", response_class=HTMLResponse)
+def ui_user_plan(user_id: int, request: Request, db: Session = Depends(get_db)):
+    user = db.get(UserDB, user_id)
+    if not user:
+        raise HTTPException(404, f"User id {user_id} not found.")
+    today = _build_today(db, user)
+    # Plan against what's *left* today, not the full daily target.
+    target = {
+        "daily_kcal": max(int(today["remaining"]["kcal"]), user.daily_kcal),
+        "protein":    max(int(today["remaining"]["protein"]), 0),
+        "fat":        max(int(today["remaining"]["fat"]), 0),
+        "carbs":      max(int(today["remaining"]["carbs"]), 0),
+    }
+    plan = build_plans(db, target, meals=3)
+    targets = {
+        "daily_kcal": user.daily_kcal,
+        "protein":    user.protein,
+        "fat":        user.fat,
+        "carbs":      user.carbs,
+    }
+    return templates.TemplateResponse(request, "plan.html", {
+        "profile": user, "targets": targets, "plan": plan,
+    })
 
 # We use @app.post because we are SENDING data to the server
 @app.post("/calculate", response_model=MacroResponse)

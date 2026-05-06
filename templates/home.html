@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block content %}
+<hgroup>
+  <h1>Macro Tracker</h1>
+  <p>Calculate your daily macro target, log what you eat, see what's left.</p>
+</hgroup>
+
+<div class="grid">
+  <article>
+    <h3>1 — Calculate</h3>
+    <p>Enter your stats and a goal. Get a personalized daily kcal + macro target with friendly feedback.</p>
+    <a href="/app/calculate" role="button">Get started</a>
+  </article>
+
+  <article>
+    <h3>2 — Track</h3>
+    <p>Pick a recipe, log it. Your remaining macros for today update instantly.</p>
+    <a href="/app/users" role="button" class="secondary">View users</a>
+  </article>
+
+  <article>
+    <h3>3 — Plan</h3>
+    <p>Get suggested meal plans that fit your remaining macros and any dietary restrictions.</p>
+    <a href="/docs" role="button" class="contrast outline" target="_blank">API docs</a>
+  </article>
+</div>
+{% endblock %}

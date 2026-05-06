@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<hgroup>
+  <h2>Meal plan suggestions</h2>
+  <p>For <a href="/app/users/{{ profile.id }}">{{ profile.name }}</a> · target {{ targets.daily_kcal }} kcal</p>
+</hgroup>
+
+{% if plan.error %}
+  <article>
+    <p><strong>Couldn't build a plan.</strong></p>
+    <p>{{ plan.error }}</p>
+  </article>
+{% else %}
+  {% for p in plan.plans %}
+  <article>
+    <header>
+      <strong>Plan {{ loop.index }}</strong>
+      <small style="float: right">score {{ p.score }} (lower = better fit)</small>
+    </header>
+
+    {% for m in p.meals %}
+    <div style="margin-bottom: 1rem;">
+      <strong>{{ m.slot | capitalize }}: {{ m.recipe.name }}</strong>
+      <small>({{ m.recipe.total_kcal | round | int }} kcal · {{ m.recipe.total_protein | round | int }}P · scale ×{{ m.recipe.scale_factor }})</small>
+      <details>
+        <summary>Ingredients</summary>
+        <ul>
+        {% for it in m.recipe["items"] %}
+          <li>{{ it.ingredient_name }} — {{ it.grams }} g</li>
+        {% endfor %}
+        </ul>
+      </details>
+    </div>
+    {% endfor %}
+
+    <footer>
+      <small>
+        Totals: {{ p.totals.total_kcal | round | int }} kcal · {{ p.totals.total_protein | round | int }}P ·
+        {{ p.totals.total_fat | round | int }}F · {{ p.totals.total_carbs | round | int }}C
+      </small>
+      {% for msg in p.messages %}<p style="margin: 0.3rem 0"><em>{{ msg }}</em></p>{% endfor %}
+    </footer>
+  </article>
+  {% endfor %}
+{% endif %}
+
+<a href="/app/users/{{ profile.id }}" role="button" class="secondary">← Back to dashboard</a>
+{% endblock %}

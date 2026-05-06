@@ -8,8 +8,8 @@ class UserCreate(BaseModel):
     height: float = Field(..., gt=0)
     weight: float = Field(..., gt=0)
     age: int = Field(..., gt=0, lt=120)
-    activity_level: str  # "1", "2", "3", etc.
-    goal_choice: str     # "1", "2", "3", etc.
+    activity_level: str = Field(..., pattern="^[1-5]$")  # "1"–"5"
+    goal_choice: str = Field(..., pattern="^[1-5]$")     # "1"–"5"
 
 # This is what the API SENDS BACK to the user
 class MacroResponse(BaseModel):

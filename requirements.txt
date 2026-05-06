@@ -4,6 +4,8 @@ anyio==4.13.0
 click==8.3.1
 colorama==0.4.6
 fastapi==0.135.3
+jinja2==3.1.6
+python-multipart==0.0.27
 greenlet==3.3.2
 h11==0.16.0
 idna==3.11

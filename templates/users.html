@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<hgroup>
+  <h2>Users</h2>
+  <p>Click a user to open their dashboard.</p>
+</hgroup>
+
+{% if users %}
+<table>
+  <thead>
+    <tr><th>id</th><th>name</th><th>daily kcal</th><th>protein</th><th>fat</th><th>carbs</th><th></th></tr>
+  </thead>
+  <tbody>
+  {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td><strong>{{ u.name }}</strong></td>
+      <td>{{ u.daily_kcal }}</td>
+      <td>{{ u.protein }} g</td>
+      <td>{{ u.fat }} g</td>
+      <td>{{ u.carbs }} g</td>
+      <td><a href="/app/users/{{ u.id }}" role="button" class="secondary outline">Open →</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<article>
+  <p>No users yet.</p>
+  <a href="/app/calculate" role="button">Create the first user</a>
+</article>
+{% endif %}
+{% endblock %}

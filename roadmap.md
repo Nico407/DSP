@@ -1,40 +1,81 @@
-# backend logic
+# Roadmap
+
+## Project layout
 
 ```text
-backend/
-├── main.py          # The "entry point" that connects everything
-├── database.py      # Database connection setup
-├── models.py        # Database table definitions (User, Recipe)
-├── schemas.py       # Data validation (Pydantic models)
-├── calculations.py  # The "Math" (BMR, TDEE, Macros, Anabolic Resistance)
-└── recipes.db       # Local SQLite database file
+.
+├── main.py            # FastAPI app — API + UI routes
+├── database.py        # SQLAlchemy engine + session
+├── models.py          # User, Ingredient, Recipe, RecipeItem, Tag, MealLog
+├── schemas.py         # Pydantic request/response schemas
+├── calculations.py    # BMR / TDEE / macros + friendly messages
+├── recipes.py         # Recipe totals + scaler
+├── planner.py         # Meal-plan suggester
+├── food_log.py        # Food-log helpers
+├── seed.py            # One-shot DB seeder
+├── templates/         # Jinja2 templates for the UI
+├── tests/             # Pytest suite (38 tests)
+├── Dockerfile         # Container image
+├── fly.toml           # Fly.io launch config
+├── serve_public.sh    # Quick Cloudflare tunnel
+├── serve_named.sh     # Named Cloudflare tunnel
+└── recipes.db         # SQLite database
+```
 
-Phase 1: Core Engine
-[x] User Logic: Handling inputs (weight, height, age, sex).
+## Phase 1 — Core engine
 
-[x] Activity & Goals: Integration of activity levels and goal-based adjustments.
+- [x] User logic: handling inputs (weight, height, age, sex)
+- [x] Activity & goals: levels and goal-based adjustments
+- [x] BMR + TDEE calculations
+- [x] Persistence: user profile storage in SQLite
 
-[x] The Math: Basal Metabolic Rate (BMR) and TDEE calculations.
+## Phase 2 — Recipe ecosystem
 
-[x] Persistence: Database insertion and user profile storage.
+- [x] Ingredient library (per-100g macros + diet tags)
+- [x] Scalable recipes (Recipe + RecipeItem with grams)
+- [x] Scaler logic: scale a recipe to hit a target kcal or protein
 
-Phase 2: Recipe Ecosystem
-[x] Ingredient Library: Database table for raw ingredients and their macros.
+## Phase 3 — Smart features
 
-[x] Scalable Recipes: DB table for full recipes with fixed macro ratios.
+- [x] Dietary restrictions (Tag model + filter on `/recipes` and `/plan`)
+- [x] Meal planning (`build_plans` with permutation scoring)
+- [x] UX polish: friendly feedback throughout
+  - `/calculate` returns goal-aware messages and protein-bump notes for 40+/50+
+  - `/plan` returns "You have N kcal left" / "Protein N g over" lines per plan
+  - `/users/{id}/today` returns real-time consumption-driven messages
+    ("Nothing logged yet today — start with breakfast.")
 
-[x] Scaler Logic: Algorithm to adapt portion sizes to fit specific meal/daily targets.
+## Phase 4 — Deployment & UI
 
-Phase 3: Smart Features
-[x] Dietary Restrictions: Filtering for allergies or preferences (Vegan, Keto, etc.).
+- [x] API documentation: Swagger UI at `/docs` with full `response_model` typing
+- [x] UI design: server-rendered pages at `/app/*`
+  - Home (3-card intro)
+  - Calculate form
+  - Users list
+  - User dashboard (target/consumed/remaining + log form + today's log)
+  - Suggested meal plan view
+- [ ] Production deployment: Dockerfile + fly.toml are ready, hosting is the
+      remaining decision (Fly requires a card; Render free needs a Postgres
+      switch; Cloudflare quick tunnel works as an interim demo)
 
-[x] Meal Planning: Automated suggestions based on remaining daily macros.
+## Beyond the original roadmap
 
-[ ] UX Polish: Friendly feedback (e.g., "You have 600kcal left for today").
+Things that were not on the plan but ended up in the codebase:
 
-Phase 4: Deployment & UI
-[ ] API Documentation: Interactive FastAPI docs for frontend integration.
+- [x] User identity loop (`GET /users`, `GET /users/{id}`, `POST /users/{id}/plan`,
+      `GET /users/{id}/summary`) — closes the loop so stored users aren't write-only
+- [x] Food log (`MealLog` table + log/list/delete endpoints + `/today`) — the
+      table that makes "kcal left for today" truthful instead of plan-relative
+- [x] 38-test pytest suite for pure logic
+- [x] Pydantic v3 / SQLAlchemy 2.0 deprecation cleanup
+- [x] UTF-8 requirements.txt (was UTF-16, broke `pip install -r`)
 
-[ ] UI Design: Creating a clean, user-friendly interface.
+## Honest gaps
 
-[ ] Deployment: Hosting the backend and database on a live server.
+- No authentication. Anyone with a tunnel URL can read/write all data. Fine
+  for a class demo, not for a public deployment.
+- No user delete / edit endpoints.
+- No admin view of all logs across users (deliberate: not the use case).
+- No timezone handling on `MealLog.eaten_at` — uses server UTC. "Today"
+  is the server's today, not the user's.
+- No food-log history page in the UI (the API has it, the UI does not).

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Macro Tracker{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <style>
+    nav ul { gap: 1rem; }
+    .stat { text-align: center; }
+    .stat strong { font-size: 1.5rem; display: block; }
+    .pill { display: inline-block; padding: 0.1rem 0.6rem; border-radius: 999px;
+            background: var(--pico-secondary-background); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <nav>
+      <ul><li><strong><a href="/app" style="text-decoration: none">Macro Tracker</a></strong></li></ul>
+      <ul>
+        <li><a href="/app/calculate">Calculate</a></li>
+        <li><a href="/app/users">Users</a></li>
+        <li><a href="/docs" target="_blank">API</a></li>
+      </ul>
+    </nav>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<hgroup>
+  <h2>{{ profile.name }}'s dashboard</h2>
+  <p>{{ today.date }} · <span class="pill">{{ goal_label }}</span></p>
+</hgroup>
+
+<article>
+  <header><strong>Today</strong></header>
+
+  <div class="grid">
+    <div class="stat">
+      <small>Target</small>
+      <strong>{{ targets.daily_kcal }} kcal</strong>
+      <small>{{ targets.protein }}P · {{ targets.fat }}F · {{ targets.carbs }}C</small>
+    </div>
+    <div class="stat">
+      <small>Consumed</small>
+      <strong>{{ today.consumed.kcal | round | int }} kcal</strong>
+      <small>{{ today.consumed.protein | round | int }}P · {{ today.consumed.fat | round | int }}F · {{ today.consumed.carbs | round | int }}C</small>
+    </div>
+    <div class="stat">
+      <small>Remaining</small>
+      <strong>{{ today.remaining.kcal | round | int }} kcal</strong>
+      <small>{{ today.remaining.protein | round | int }}P · {{ today.remaining.fat | round | int }}F · {{ today.remaining.carbs | round | int }}C</small>
+    </div>
+  </div>
+
+  {% for msg in today.messages %}
+    <p>💬 <em>{{ msg }}</em></p>
+  {% endfor %}
+</article>
+
+<article>
+  <header><strong>Log a meal</strong></header>
+  <form method="post" action="/app/users/{{ profile.id }}/log">
+    <div class="grid">
+      <label>Recipe
+        <select name="recipe_id" required>
+          {% for r in recipes %}
+            <option value="{{ r.id }}">{{ r.name }} ({{ r.total_kcal | round | int }} kcal · {{ r.total_protein | round | int }}P)</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Servings
+        <input type="number" step="0.1" name="scale_factor" value="1.0" min="0.1" required>
+      </label>
+    </div>
+    <button type="submit">Log meal</button>
+  </form>
+</article>
+
+<article>
+  <header><strong>Today's log</strong> ({{ today.logs | length }})</header>
+  {% if today.logs %}
+  <table>
+    <thead>
+      <tr><th>time</th><th>recipe</th><th>servings</th><th>kcal</th><th>protein</th><th></th></tr>
+    </thead>
+    <tbody>
+    {% for l in today.logs %}
+      <tr>
+        <td>{{ l.eaten_at.strftime("%H:%M") }}</td>
+        <td>{{ l.recipe_name or "—" }}</td>
+        <td>{{ l.scale_factor }}×</td>
+        <td>{{ l.kcal | round | int }}</td>
+        <td>{{ l.protein | round | int }} g</td>
+        <td>
+          <form method="post" action="/app/log/{{ l.id }}/delete" style="display: inline; margin: 0">
+            <button type="submit" class="secondary outline" style="padding: 0.2rem 0.6rem; margin: 0">×</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p><em>Nothing logged yet today.</em></p>
+  {% endif %}
+</article>
+
+<article>
+  <header><strong>Suggested meal plan</strong></header>
+  <p>Get a 3-meal plan that fits your remaining macros for today.</p>
+  <a href="/app/users/{{ profile.id }}/plan" role="button" class="secondary">Suggest meals →</a>
+</article>
+{% endblock %}
