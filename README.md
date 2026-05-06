@@ -105,3 +105,17 @@ python3 -m pytest -q
 
 See [roadmap.md](roadmap.md) — Phases 1–3 fully delivered, Phase 4
 (deployment + UI) shipped except for production hosting.
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md)
+for the full onboarding guide, including how to:
+- Set up your local environment
+- Add ingredients and recipes
+- Run the test suite
+- Follow branch naming conventions (`feature/`, `fix/`, `docs/`)
+- Open a pull request
+
+A GitHub Actions workflow (`.github/workflows/test.yml`) runs the full
+pytest suite on every push and pull request to `main`. Make sure CI is
+green before merging.
